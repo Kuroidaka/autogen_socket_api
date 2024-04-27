@@ -1,8 +1,16 @@
-import autogen
-from src.user_proxy_webagent import UserProxyWebAgent
 import asyncio
-from src.tools.browse.ResearchAgent import ResearcherAgent, search_function_definitions
+import autogen
+from autogen import ConversableAgent
+from autogen.agentchat.contrib.capabilities.teachability import Teachability
 
+from src.user_proxy_webagent import UserProxyWebAgent
+from src.tools.browse.ResearchAgent import ResearcherAgent, search_function_definitions
+from src.config.config_list_llm import autogen_config_list
+
+
+teachable_llm_config = {
+    "config_list": autogen_config_list
+}
 
 config_list = [
     {
@@ -40,8 +48,21 @@ class AutogenChat():
             When you ask a question, always add the word "BRKT"" at the end.
             When you responde with the status add the word TERMINATE
             """
-            
         )
+        
+        self.teachable_agent = autogen.AssistantAgent(
+            name="teachable_agent",
+            llm_config=teachable_llm_config,
+            system_message="You have the great ability to remember things that relate to user's comment, you will try to remember the relate task or things that user mentiond"
+        )
+        
+        self.teachability = Teachability(
+            reset_db=False,  # Use True to force-reset the memo DB, and False to use an existing DB.
+            path_to_db_dir="./assets/tmp/interactive/teachability_db", 
+            recall_threshold=1.5,
+            verbosity=0
+        )
+        
         self.user_proxy = UserProxyWebAgent(  
             name="user_proxy",
             human_input_mode="ALWAYS", 
@@ -52,16 +73,31 @@ class AutogenChat():
                 "browse": self.browse
             }
         )
+        
+        # self.teachable_agent = ConversableAgent(
+        #     name="teachable_agent",
+        #     llm_config=teachable_llm_config
+        # )
+
 
         # add the queues to communicate 
         self.user_proxy.set_queues(self.client_sent_queue, self.client_receive_queue)
 
     async def start(self, message):
+        
+        self.teachability.add_to_agent(self.teachable_agent)
+        
         await self.user_proxy.a_initiate_chat(
-            self.assistant,
+            self.teachable_agent,
             clear_history=True,
             message=message
         )
+        
+        # await self.user_proxy.a_initiate_chat(
+        #     self.assistant,
+        #     clear_history=True,
+        #     message=message
+        # )
 
     async def browse(self, query): 
         try:
