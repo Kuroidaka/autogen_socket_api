@@ -20,7 +20,7 @@ local_mixtral_list = config_list_from_json(
   }
 )
 
-groq_config_list_70b = config_list_from_json(
+llama3_groq_config_70b = config_list_from_json(
   env_or_file="OAI_CONFIG_LIST",
   filter_dict={
     "model": {
@@ -47,4 +47,4 @@ gpt35_config_list = config_list_from_json(
   }
 )
 
-autogen_config_list = groq_config_list_70b
+autogen_config_list = llama3_groq_config_70b

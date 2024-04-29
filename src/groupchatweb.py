@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 import sys
 from typing import Dict, List, Optional, Union
-from autogen import Agent, ConversableAgent, GroupChat
+from autogen import Agent, GroupChat
+from src.custom.CustomConversableAgent import CustomConversableAgent
 import logging
 
 
-class GroupChatManagerWeb(ConversableAgent):
+class GroupChatManagerWeb(CustomConversableAgent):
     """(In preview) A chat manager agent that can manage a group chat of multiple agents."""
 
     def __init__(
@@ -49,7 +50,7 @@ class GroupChatManagerWeb(ConversableAgent):
             # broadcast the message to all agents except the speaker
             for agent in groupchat.agents:
                 if agent != speaker:
-                    self.send(message, agent, request_reply=False, silent=True)
+                    await self.a_send(message, agent, request_reply=False, silent=True)
             if i == groupchat.max_round - 1:
                 # the last round
                 break
@@ -70,6 +71,6 @@ class GroupChatManagerWeb(ConversableAgent):
             if reply is None:
                 break
             # The speaker sends the message without requesting a reply
-            speaker.send(reply, self, request_reply=False)
+            await speaker.a_send(reply, self, request_reply=False)
             message = self.last_message(speaker)
         return True, None

@@ -3,13 +3,15 @@ from autogen import Agent, ConversableAgent
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 import json
 
+from src.custom.CustomUserAgent import CustomUserProxyAgent
+
 try:
     from termcolor import colored
 except ImportError:
     def colored(x, *args, **kwargs):
         return x
 
-class UserProxyWebAgent(autogen.UserProxyAgent):
+class UserProxyWebAgent(CustomUserProxyAgent):
     def __init__(self, *args, **kwargs):
         super(UserProxyWebAgent, self).__init__(*args, **kwargs)
         self._reply_func_list = []

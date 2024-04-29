@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse
 import uuid
-from src.autogen_chat import AutogenChat
+from src.autogen_group_chat import AutogenChat
 import asyncio
 import uvicorn
 from dotenv import load_dotenv, find_dotenv

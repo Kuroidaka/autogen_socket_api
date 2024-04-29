@@ -8,6 +8,9 @@ from langchain.tools import BaseTool
 from werkzeug.exceptions import BadRequest, InternalServerError, NotFound
 from multiprocessing import Process, Queue
 import asyncio
+import requests
+import json
+import os
 
 class ScrapeWebsiteInput(BaseModel):
     """Inputs for scrape_website"""
@@ -63,7 +66,7 @@ def scrape(queue, url: str, objective: str):
                 print(text)
                 return text
             else:
-                return "No content found or content too short."
+                return "No content found after scrape."
 
         except Exception as e:
             print("Error occurred:", str(e))
@@ -74,7 +77,37 @@ def scrape(queue, url: str, objective: str):
             if browser:
                 await browser.close()
     
-    result = asyncio.run(async_scrape())
+    async def serp_scrape(url, objective):
+        try:
+            serp_url = "https://scrape.serper.dev"
+            serper_token = os.getenv("SERPER_API_KEY")
+
+            payload = json.dumps({
+                "url": url
+            })
+            headers = {
+                'X-API-KEY': serper_token,
+                'Content-Type': 'application/json'
+            }
+
+            response = requests.request("POST", serp_url, headers=headers, data=payload)
+            if response.status_code != 200:
+                return f"error while scraping url: {url}"
+            
+            text = json.dumps(response.text)
+            if text is not None:
+                if len(text) > 8000:
+                    print("Summarizing")
+                    text = await summary(text, objective)
+                return text
+            else:
+                return "No content found or content."
+
+        except Exception as e:
+            print("ERROR-SCRAPE:", str(e))
+            raise InternalServerError(str(e))
+    # result = asyncio.run(async_scrape())
+    result = asyncio.run(serp_scrape(url, objective))
     queue.put(result)
 # Example usage
 # asyncio.run(scrape('https://www.binance.com/vi/price/bitcoin', 'Get the current price of Bitcoin'))

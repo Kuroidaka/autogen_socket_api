@@ -2,33 +2,30 @@ import asyncio
 import autogen
 from autogen import ConversableAgent
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
+from datetime import date
+import time
 
 from src.user_proxy_webagent import UserProxyWebAgent
+from src.custom.CustomAssistantAgent import CustomAssistantAgent
 from src.tools.browse.ResearchAgent import ResearcherAgent, search_function_definitions
-from src.config.config_list_llm import autogen_config_list
+from src.config.config_list_llm import autogen_config_list, gpt35_config_list, llama3_groq_config_70b
 
 
 teachable_llm_config = {
-    "config_list": autogen_config_list
+    "model":"llama3-70b-8192",
+    "temperature": 0,
+    "config_list": llama3_groq_config_70b
 }
 
-config_list = [
-    {
-        "model": "gpt-3.5-turbo",
-    }
-]
+
 llm_config_assistant = {
-    "model":"gpt-3.5-turbo",
+    "model":"llama3-70b-8192",
     "temperature": 0,
-    "config_list": config_list,
+    "config_list": llama3_groq_config_70b,
         "functions": [ search_function_definitions ],
 }
-llm_config_proxy = {
-    "model":"gpt-3.5-turbo-0613",
-    "temperature": 0,
-    "config_list": config_list,
-}
-
+t = time.localtime()
+current_time = time.strftime("%H:%M:%S", t)
 
 #############################################################################################
 # this is where you put your Autogen logic, here I have a simple 2 agents with a function call
@@ -39,21 +36,32 @@ class AutogenChat():
         self.client_sent_queue = asyncio.Queue()
         self.client_receive_queue = asyncio.Queue()
 
-        self.assistant = autogen.AssistantAgent(
-            name="assistant",
+        self.research_agent = CustomAssistantAgent(
+            name="research_agent",
             llm_config=llm_config_assistant,
-            system_message="""You are a helpful assistant, help the user find the status of his order. 
-            You are an expert researcher and you can do detailed research on any topic and produce facts based results by using the function browse()
+            system_message="""
+            You are an expert researcher and you can do detailed research on any topic and produce facts based results
+
+            YOU DO NOT MAKE THING UP
             
-            When you ask a question, always add the word "BRKT"" at the end.
-            When you responde with the status add the word TERMINATE
+            
+            0/If you need more information to solve the task, you can ask the person who posed the question.
+            1/ After browse, you should think "Did the previous answer satisfy the question?" If answer is no, continue invoke browse(); But don't do this more than 2 iterations
+            2/ You should not make things up, you should only write facts & data that you have gathered
+            3/ In the final output, You should include all reference data & links to back up your research;
+            When you browse function called number reach 2 or you response the status then don't include any advice just say TERMINATE.
             """
         )
         
-        self.teachable_agent = autogen.AssistantAgent(
-            name="teachable_agent",
+        self.raine = autogen.AssistantAgent(
+            name="raine",
             llm_config=teachable_llm_config,
-            system_message="You have the great ability to remember things that relate to user's comment, you will try to remember the relate task or things that user mentiond"
+            system_message=f"""
+            Your name is Raine
+            - You are an female assistant for your boss, 
+            - Your boss's name is Canh
+            - You always use vulgar, Profanity, innuendos but humorous vocabulary in your sentences, you can use F-words.
+            """
         )
         
         self.teachability = Teachability(
@@ -66,7 +74,6 @@ class AutogenChat():
         self.user_proxy = UserProxyWebAgent(  
             name="user_proxy",
             human_input_mode="ALWAYS", 
-            max_consecutive_auto_reply=10,
             is_termination_msg=lambda x: x.get("content", "") and x.get("content", "").rstrip().endswith("TERMINATE"),
             code_execution_config=False,
             function_map={
@@ -74,27 +81,21 @@ class AutogenChat():
             }
         )
         
-        # self.teachable_agent = ConversableAgent(
-        #     name="teachable_agent",
-        #     llm_config=teachable_llm_config
-        # )
-
-
         # add the queues to communicate 
         self.user_proxy.set_queues(self.client_sent_queue, self.client_receive_queue)
 
     async def start(self, message):
         
-        self.teachability.add_to_agent(self.teachable_agent)
+        # self.teachability.add_to_agent(self.raine)
         
         await self.user_proxy.a_initiate_chat(
-            self.teachable_agent,
+            self.research_agent,
             clear_history=True,
             message=message
         )
         
         # await self.user_proxy.a_initiate_chat(
-        #     self.assistant,
+        #     self.research_agent,
         #     clear_history=True,
         #     message=message
         # )
@@ -108,6 +109,7 @@ class AutogenChat():
             data = await researcher.runv1(message=query)
             # data = "bitcoin price now is 63K$"
             # print("data ready for return", data)
+            await self.client_receive_queue.put(data)
             return data
         except Exception as e:
             print(e)

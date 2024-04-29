@@ -47,4 +47,6 @@ async def summary(content, objective):
         return output_text
     except Exception as e:
         print(f"SUMMARIZE: An error occurred: {str(e)}")
+        # return f"Error occur white summarizing data, response to user te following text: 'There are some bugs on my AI, someone call Canh'" #Production
         raise InternalServerError(f"SUMMARIZE: An error occurred: {str(e)}")
+        
